@@ -7,7 +7,7 @@ st.set_page_config(page_title="Mental Health Chatbot", page_icon="🧠")
 
 # Disclaimer
 st.sidebar.markdown("""
-**Disclaimer:**  
+*Disclaimer:*  
 This chatbot is not a substitute for professional mental health care. 
 If you're in crisis, please contact your local emergency services or a mental health professional.
 """)
@@ -128,6 +128,6 @@ with col2:
             st.success(meditation)
 
 # Clear conversation button
-if st.button("🗑️ Clear Conversation"):
+if st.button("🗑 Clear Conversation"):
     st.session_state.conversation_history = []
-    st.experimental_rerun()
+    st.rerun()
