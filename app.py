@@ -1,9 +1,11 @@
 import streamlit as st
-from openai import OpenAI
+import google.generativeai as genai
 import base64
 
-# Load API key securely
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+# Load Gemini API key (store it in Streamlit secrets)
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+
+model = genai.GenerativeModel("gemini-pro")
 
 # Page configuration
 st.set_page_config(page_title="Mental Health Chatbot", page_icon="🧠")
@@ -22,7 +24,7 @@ def get_base64(background):
         data = f.read()
     return base64.b64encode(data).decode()
 
-# Apply background if image exists
+# Apply background
 try:
     bin_str = get_base64("background.png")
     st.markdown(f"""
@@ -39,7 +41,7 @@ try:
 except FileNotFoundError:
     st.warning("Background image not found. Using default background.")
 
-# Initialize conversation history
+# Conversation history
 if 'conversation_history' not in st.session_state:
     st.session_state.conversation_history = []
 
@@ -47,45 +49,28 @@ if 'conversation_history' not in st.session_state:
 def generate_response(user_input):
     st.session_state.conversation_history.append({"role": "user", "content": user_input})
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=st.session_state.conversation_history
-        )
-        ai_response = response.choices[0].message.content.strip()
+        conversation = [msg["content"] for msg in st.session_state.conversation_history if msg["role"] == "user"]
+        combined_input = "\n".join(conversation)
+        response = model.generate_content(combined_input)
+        ai_response = response.text.strip()
         st.session_state.conversation_history.append({"role": "assistant", "content": ai_response})
         return ai_response
     except Exception as e:
         st.error(f"Error generating response: {str(e)}")
         return "I'm having trouble responding right now. Please try again later."
 
-# Function for affirmations
+# Functions for affirmation and meditation
 def generate_affirmation():
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": "Give a short positive affirmation to reduce stress."}]
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        st.error(f"Error generating affirmation: {str(e)}")
-        return "You are stronger than you think."
+    response = model.generate_content("Give a short, positive affirmation for stress relief.")
+    return response.text.strip()
 
-# Function for meditation guide
 def generate_meditation_guide():
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": "Write a 3-minute guided meditation for relaxation."}]
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        st.error(f"Error generating meditation guide: {str(e)}")
-        return "Close your eyes. Take a deep breath... and relax."
+    response = model.generate_content("Write a short 3-minute guided meditation for relaxation.")
+    return response.text.strip()
 
-# UI
+# Streamlit UI
 st.title("🧠 Mental Health Support Chatbot")
 
-# Display conversation
 for msg in st.session_state.get('conversation_history', []):
     if msg['role'] == "user":
         with st.chat_message("user"):
@@ -94,7 +79,6 @@ for msg in st.session_state.get('conversation_history', []):
         with st.chat_message("assistant"):
             st.write(msg['content'])
 
-# Chat input
 if prompt := st.chat_input("How can I help you today?"):
     with st.chat_message("user"):
         st.write(prompt)
@@ -103,22 +87,18 @@ if prompt := st.chat_input("How can I help you today?"):
             reply = generate_response(prompt)
             st.write(reply)
 
-# Buttons for extra features
 col1, col2 = st.columns(2)
 
 with col1:
     if st.button("✨ Get Positive Affirmation"):
         with st.spinner("Generating affirmation..."):
-            affirmation = generate_affirmation()
-            st.info(affirmation)
+            st.info(generate_affirmation())
 
 with col2:
     if st.button("🧘 Get Guided Meditation"):
-        with st.spinner("Preparing meditation guide..."):
-            meditation = generate_meditation_guide()
-            st.success(meditation)
+        with st.spinner("Generating meditation guide..."):
+            st.success(generate_meditation_guide())
 
-# Clear conversation button
 if st.button("🗑 Clear Conversation"):
     st.session_state.conversation_history = []
     st.rerun()
